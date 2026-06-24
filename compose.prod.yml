@@ -1,0 +1,65 @@
+volumes:
+  postgres-db:
+
+x-base: &base
+  build:
+    context: .
+  env_file: .env.prod
+  restart: always
+
+
+services:
+  postgres:
+    extends:
+      file: compose.base.yml
+      service: postgres
+    restart: always
+
+    # env_file: .env.prod
+    # Fake production without auth!
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  prisma_migrate:
+    <<: *base
+    build:
+      target: prisma_migrate
+    restart: no
+    depends_on:
+      - postgres
+
+  queue:
+    <<: *base
+    build:
+      target: queue
+    ports: [3001:3001]
+    depends_on:
+      postgres:
+        condition: service_started
+      prisma_migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *base
+    build:
+      target: worker
+    depends_on:
+      - queue
+
+  ui:
+    <<: *base
+    build:
+      target: ui
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:3001
+    ports: [3000:3000]
+    depends_on:
+      - queue
+
+  test:
+    <<: *base
+    build:
+      target: test
+    profiles: [test]
+    depends_on:
+      - queue

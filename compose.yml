@@ -1,0 +1,85 @@
+
+volumes:
+  postgres-db:
+
+services:
+  postgres:
+    extends:
+      file: compose.base.yml
+      service: postgres
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports: [5432:5432]
+    volumes:
+      - postgres-db:/var/lib/postgresql/data/
+    logging:
+      options:
+        max-size: 1k
+
+  base_dev:
+    build:
+      context: .
+      target: base_node
+    volumes:
+      - $PWD:$PWD
+      - $HOME:$HOME
+      - /etc/passwd:/etc/passwd:ro
+      - /tmp:/tmp
+    working_dir: $PWD
+    user: ${UID:?Set UID variable to your `id -u`}
+    command: npm run dev
+    profiles: [base_dev]
+    env_file:
+      - .env.dev
+      - path: .env
+        required: false
+
+  init:
+    extends: base_dev
+    command: sh -c "npm i && npx prisma generate && npx prisma migrate deploy"
+    profiles: [init]
+    depends_on:
+      - postgres
+
+  prisma:
+    extends: base_dev
+    entrypoint: node --import tsx ./node_modules/.bin/prisma
+    profiles: [prisma]
+
+  queue:
+    extends: base_dev
+    working_dir: $PWD/queue
+    command: npx tsx watch index.ts
+    environment:
+      - NODE_OPTIONS=--inspect-port=0.0.0.0:9230
+    ports: [3001:3001, 9230:9230]
+    depends_on:
+      - postgres
+
+  worker:
+    extends: base_dev
+    working_dir: $PWD/worker
+    command: npx tsx watch index.ts
+    environment:
+      - NODE_OPTIONS=--inspect-port=0.0.0.0:9231
+    ports: [9231:9231]
+    depends_on:
+      - queue
+
+  ui:
+    extends: base_dev
+    working_dir: $PWD/ui
+    command: npx next dev
+    environment:
+      - NODE_OPTIONS=--inspect-port=0.0.0.0:9232
+      - NEXT_PUBLIC_API_BASE=http://localhost:3001
+    ports: [3000:3000, 9232:9232]
+    depends_on:
+      - queue
+
+  test:
+    extends: base_dev
+    command: npm test
+    profiles: [test]
+    depends_on:
+      - queue

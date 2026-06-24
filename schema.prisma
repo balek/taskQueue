@@ -1,0 +1,41 @@
+generator client {
+    provider        = "prisma-client"
+    output          = "./prisma"
+    previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum TaskType {
+    llm
+    js
+    http
+}
+
+enum TaskStatus {
+    unfinished
+    success
+    dlq
+}
+
+model Task {
+    id          String     @id @default(uuid(7)) @db.Uuid()
+    queue       String
+    status      TaskStatus
+    type        TaskType
+    payload     Json
+    result      Json?
+    attempts    Int        @default(0)
+    maxAttempts Int        @default(3)
+    runAt       DateTime   @default(now()) @db.Timestamptz()
+    workerId    String?    @db.Uuid()
+    leaseUntil  DateTime?  @db.Timestamptz()
+    dedupeKey   String?    @unique
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+
+    @@index([queue, runAt], where: { status: "unfinished" })
+    @@index([queue, status, updatedAt])
+}

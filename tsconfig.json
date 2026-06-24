@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true, 
+    "outDir": "dist",
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["./ui/*"]
+    },
+  },
+  "include": ["tests/**/*", "prisma/**/*", "queue/**/*", "worker/**/*", "ui/**/*"],
+  "exclude": ["node_modules", "dist", ".next"]
+}
